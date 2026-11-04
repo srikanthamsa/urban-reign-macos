@@ -39,6 +39,7 @@ set(URBAN_HOST_SOURCES
     urban/function_hooks.cpp
     urban/call_profile.cpp
     urban/call_trace.cpp
+    urban/combat_capture.cpp
     urban/game_disc.cpp
     urban/hang_dump.cpp
     urban/anim_decoder.cpp

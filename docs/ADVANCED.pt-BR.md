@@ -148,7 +148,8 @@ os slots B-D da porta 2 e os B-D da porta 1 (a porta 2 primeiro, ao contrário d
 P3/P4, então o multitap da porta 1 só acrescenta os jogadores 6-8; P5-P8 humanos com o CoopTool). Um `controls.ini` de versão antiga é convertido na primeira execução (o
 `controls.ini.old` guarda o antigo). **F1** abre o depurador do runtime (ImGui), **F3** o contador de FPS, **F5/F9**
 salvam/carregam o estado rápido, **F6** inicia/para uma captura de desempenho (**F7** marca um momento nela), **F8**
-grava uma captura de depuração (RAM + trace do VU1), **F11** alterna a tela cheia.
+grava uma captura de depuração (RAM + trace do VU1), **F10** inicia/encerra uma captura de combate no Windows
+(`capturas/combate_<n>.csv`, com os comandos de esquiva, contadores, movimentos e hits de P1–P8), **F11** alterna a tela cheia.
 
 O jogo abre em **progressive scan (480p)**, como o patch "Force Progressive Scan" do PCSX2: até 60 FPS em vez de 30
 (`URBAN_PROGRESSIVE=0` no `config.ini` `[Runtime]` volta ao modo entrelaçado).

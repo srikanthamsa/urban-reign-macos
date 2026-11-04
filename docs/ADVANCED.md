@@ -148,7 +148,8 @@ then port 2's slots B-D and port 1's B-D (port 2 first, unlike PCSX2: the game u
 multitap only adds players 6-8; P5-P8 as humans with CoopTool). A `controls.ini` from an older version is converted on the first run
 (`controls.ini.old` keeps it). **F1** opens the runtime debugger (ImGui), **F3** the FPS counter, **F5/F9** quick save/load
 state, **F6** starts/stops a performance capture (**F7** marks a moment in it), **F8** writes a debug capture
-(RAM + VU1 trace), **F11** toggles fullscreen.
+(RAM + VU1 trace), **F10** starts/stops a combat capture on Windows (`capturas/combate_<n>.csv`, with P1–P8's dodge
+commands, timers, motions and hit events), **F11** toggles fullscreen.
 
 The game starts in **progressive scan (480p)**, like PCSX2's "Force Progressive Scan" patch: up to 60 FPS instead of
 30 (`URBAN_PROGRESSIVE=0` in `config.ini` `[Runtime]` goes back to interlaced).

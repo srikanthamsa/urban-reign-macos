@@ -1,5 +1,7 @@
 # Sobre o jogo (referência técnica)
 
+Esquivas, agarrões e janelas de reversão: veja [COMBAT.md](COMBAT.md).
+
 - **Executável**: `SLUS_212.09` (NTSC-U), SHA-256 `60399090fc69ffdb4c39afd30977ab50890b0e33ed6bd9374e4d9497f4246081`.
 - **SDK da Sony 2.8** (assinaturas `PsIIlib*` no ELF, nesta ordem de linkagem): `libdma`, `libgraph`, `libpkt`,
   `libpad`, `libmtap`, `libsdr`, `libcdvd`, `libscf`, `libipu`, `libmpeg`, `libmc` (2.8.1), `libpc`, `libkernl`;

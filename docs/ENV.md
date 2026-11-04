@@ -9,6 +9,7 @@
 | `URBAN_HW_WATCH_RW=1` | junto de `URBAN_HW_WATCH`, o watchpoint pega leituras também (loga "access", sem o valor) |
 | `COOPTOOL_LIVE=1` | (mod CoopTool) liga os bots extras mesmo com a luta rodando (jeito antigo; cena preta / câmera voando) |
 | (tecla F8) | grava `ram_<tick>.bin` e um trace do VU1 de 2 fields (`vu1trace_<tick>.bin`) na pasta do executável |
+| (tecla F10, Windows) | inicia/encerra uma captura de combate em `capturas/combate_<n>.csv`, na pasta de dados do jogo. Registra P1–P8 antes/depois da atualização e dos hits: vida, movimento/quadro, comando e contador da esquiva e eventos de golpe/esquiva. Não grava vídeo nem um replay de controles; use F5 antes do combo para guardar o ponto de partida. |
 | `URBAN_DEBUG_UI=1` | abre o Runtime Debugger (ImGui) no início; F1 abre/fecha a qualquer momento |
 | `PS2X_IOP_HLE_MCSERV=0` | (runtime) usa o MCSERV/MCMAN originais do jogo no IOP emulado em vez do HLE |
 | `PS2X_GS_SIGNAL_STALL=0` | (runtime) desliga o stall do SIGNAL no GS |

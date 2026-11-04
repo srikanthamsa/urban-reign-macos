@@ -13,6 +13,7 @@
 #include "urban/aspect.h"
 #include "urban/call_profile.h"
 #include "urban/call_trace.h"
+#include "urban/combat_capture.h"
 #include "urban/function_hooks.h"
 #include "urban/game_disc.h"
 #include "urban/hang_dump.h"
@@ -1450,11 +1451,13 @@ int main(int argc, char *argv[])
         });
         urban::hangdump::setRuntime(&runtime);
         urban::calltrace::installFromEnvironment(runtime);
+        urban::combatcapture::install(userDir);
         urban::FunctionHooks::instance().logBindings();
         urban::callprofile::installFromEnvironment(runtime); // last: wraps whatever the slots hold now
 
         URBAN_INFO(Boot, "starting guest at 0x" << std::hex << runtime.cpu().pc);
         runtime.run();
+        urban::combatcapture::finish();
         URBAN_INFO(Boot, "runtime exited");
     }
     catch (const std::exception &e)
