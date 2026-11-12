@@ -9,7 +9,12 @@ uname -m
 [ "$(uname -m)" = "arm64" ] || { echo "arm64 required" >&2; exit 1; }
 
 echo "== configure/build =="
-cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=arm64
+if [ -n "${URBAN_GENERATED_DIR:-}" ]; then
+    cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DURBAN_GENERATED_DIR="$URBAN_GENERATED_DIR"
+else
+    cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=arm64
+fi
 cmake --build "$BUILD" --target urban pcsx2_gs_test_mac ps2x_gs_window_smoke -- -j 8
 
 echo "== urban --help =="
