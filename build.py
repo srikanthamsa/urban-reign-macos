@@ -86,7 +86,9 @@ def build(target="urban"):
     if game_running():
         print(f"{EXE} is running: close the game first (the link would fail).")
         return 1
-    if not (BUILD / "CMakeCache.txt").exists() and configure():
+    # Always reconfigure: generate/build transitions add or remove the generated-code target, and a cached build tree
+    # configured before generation has no `urban` target.
+    if configure():
         return 1
     return in_vs("cmake", "--build", BUILD, "--target", target, "--", "-j", JOBS)
 
