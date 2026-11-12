@@ -45,7 +45,12 @@ namespace gs_pcsx2_mac
         // Create the CAMetalLayer here, on the main thread. PCSX2's VKSwapChain uses surface_handle directly; doing
         // this in CocoaTools::CreateMetalLayer from the GS thread would need a synchronous main-queue hop.
         CAMetalLayer *layer = [CAMetalLayer layer];
-        layer.contentsScale = [[[view window] screen] backingScaleFactor];
+        const CGFloat scale = [[[view window] screen] backingScaleFactor];
+        layer.contentsScale = scale;
+        layer.frame = view.bounds;
+        layer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+        layer.drawableSize = CGSizeMake(bounds.size.width * scale, bounds.size.height * scale);
+        layer.opaque = YES;
         view.layer = layer;
         surface = (__bridge void *)layer;
 
@@ -64,6 +69,16 @@ namespace gs_pcsx2_mac
         height = static_cast<uint32_t>(std::max<CGFloat>(1.0, bounds.size.height));
         if (!NSEqualRects(view.frame, bounds))
             [view setFrame:bounds];
+        if ([view.layer isKindOfClass:[CAMetalLayer class]])
+        {
+            CAMetalLayer *layer = (CAMetalLayer *)view.layer;
+            const CGFloat scale = view.window ? view.window.backingScaleFactor : 1.0;
+            layer.frame = view.bounds;
+            layer.contentsScale = scale;
+            const CGSize drawable = CGSizeMake(bounds.size.width * scale, bounds.size.height * scale);
+            if (!CGSizeEqualToSize(layer.drawableSize, drawable))
+                layer.drawableSize = drawable;
+        }
     }
 
     void SetVisible(void *childView, bool visible)
