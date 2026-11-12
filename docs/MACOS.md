@@ -63,6 +63,12 @@ window. The child ignores hit testing, so input remains with GLFW. The default `
 The port's own OpenGL GS remains Windows-only. On macOS, leave `[Video] Renderer=pcsx2`; if the dylib is missing the
 software GS is the fallback, but it is only a diagnostic path.
 
+## Retail image verification
+
+On an M4 Air with the USA `SLUS-21209` image, the native build boots through the PlayStation 2 logo, the intro
+cutscenes, the title screen, the profile menu and the profile name-entry screen. PCSX2's GS reports fields and GIF
+traffic continuously (21,600 fields observed) with the image displayed in the child `NSView`.
+
 ## Verification without a disc
 
 Two small targets are built to prove the macOS graphics plumbing without game data:
