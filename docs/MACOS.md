@@ -87,8 +87,9 @@ no-disc check in one command:
 - Debug tools that depend on Windows (`native_profile`, F10 combat capture, hardware watchpoints) are compiled out or
   no-ops on macOS.
 - Mods are `.dylib` on macOS; CoopTool and ExampleMod are built by the normal target set.
-- `tools/macos/make_app.sh` wraps the build into a locally signed `Urban Reign.app`. Distributing it needs a real
-  Developer ID signature/notarization and a review of the GPL/asset obligations.
+- `tools/macos/make_app.sh` wraps the build into `Urban Reign.app` and attempts an ad-hoc code signature. A local
+  unsigned/ad-hoc build runs; distributing it needs a real Developer ID signature/notarization and a review of the
+  GPL/asset obligations.
 - The game still requires a legally owned disc image; no game files are included.
 
 ## Licensing
