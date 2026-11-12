@@ -74,7 +74,12 @@ cd build/macos/bin
 ./ps2x_gs_window_smoke                       # raylib NSWindow + NSView/CAMetalLayer child + GS presents
 ```
 
-`ps2x_gs_window_smoke` should print `GS window attached: yes` and PCSX2 should report `60 fields`.
+`ps2x_gs_window_smoke` should print `GS window attached: yes` and PCSX2 should report `60 fields`. To run the whole
+no-disc check in one command:
+
+```sh
+./tools/macos/check_port.sh
+```
 
 ## Known limits
 
