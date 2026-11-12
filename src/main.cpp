@@ -41,8 +41,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <xmmintrin.h>
-#include <pmmintrin.h>
+#include <vector>
+#include "ps2_simd.h"
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -60,6 +60,9 @@
 #include <execinfo.h>
 #include <pthread.h>
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 #endif
 
 // ps2_memory.cpp
@@ -105,6 +108,14 @@ namespace
         MessageBoxW(nullptr, text, L"Urban Reign", MB_OK | MB_ICONERROR);
         return false;
     }
+#elif defined(__aarch64__)
+    // Apple Silicon: the runtime's SSE intrinsics are mapped to NEON by sse2neon. There is no SSE4.1/AVX2 feature to
+    // probe at run time, and no x86-only build variant to reject.
+    bool checkCpu()
+    {
+        std::fprintf(stderr, "[cpu] arm64 NEON; build %s\n", URBAN_ARCH_NAME);
+        return true;
+    }
 #else
     // As above, with the compiler's CPU feature check; the message goes to the console.
     bool checkCpu()
@@ -130,6 +141,17 @@ namespace
         if (length > 0 && length < MAX_PATH)
         {
             return std::filesystem::path(buffer).parent_path();
+        }
+#elif defined(__APPLE__)
+        uint32_t size = 0;
+        _NSGetExecutablePath(nullptr, &size);
+        std::vector<char> buffer(size, '\0');
+        if (_NSGetExecutablePath(buffer.data(), &size) == 0)
+        {
+            std::error_code error;
+            const std::filesystem::path self = std::filesystem::canonical(buffer.data(), error);
+            if (!error && !self.empty())
+                return self.parent_path();
         }
 #else
         std::error_code error;
@@ -221,12 +243,18 @@ namespace
         backtrace_symbols_fd(frames, count, STDERR_FILENO);
     }
 
+#if defined(__APPLE__)
+    uintptr_t currentThreadId() { return reinterpret_cast<uintptr_t>(pthread_self()); }
+#else
+    unsigned long currentThreadId() { return static_cast<unsigned long>(pthread_self()); }
+#endif
+
     void crashSignal(int signal, siginfo_t *info, void *)
     {
         char text[160];
         const int length = std::snprintf(text, sizeof(text), "[crash] signal %d (%s) at address %p on thread %lu\n", signal,
                                          strsignal(signal), info ? info->si_addr : nullptr,
-                                         static_cast<unsigned long>(pthread_self()));
+                                         currentThreadId());
         if (length > 0)
             (void)!write(STDERR_FILENO, text, static_cast<size_t>(length));
         printStackTrace();
@@ -248,7 +276,7 @@ namespace
             sigaction(signal, &action, nullptr);
         std::set_terminate([]()
                            {
-                               std::fprintf(stderr, "[crash] std::terminate on thread %lu\n", static_cast<unsigned long>(pthread_self()));
+                               std::fprintf(stderr, "[crash] std::terminate on thread %lu\n", currentThreadId());
                                if (const std::exception_ptr ep = std::current_exception())
                                {
                                    try
@@ -273,12 +301,18 @@ namespace
     // comes from RLIMIT_STACK (usually 8 MB); this gives the threads created from here on the same 16 MB.
     void setDefaultThreadStack()
     {
+#if defined(__APPLE__)
+        // Darwin has no pthread_setattr_default_np. The game thread is created with an explicit 16 MB stack in
+        // ps2_runtime.cpp; other pthreads keep the system default.
+        std::fprintf(stderr, "[boot] 16 MB game-thread stack is set at thread creation (Darwin)\n");
+#else
         pthread_attr_t attributes;
         if (pthread_attr_init(&attributes) != 0)
             return;
         if (pthread_attr_setstacksize(&attributes, 16u * 1024u * 1024u) != 0 || pthread_setattr_default_np(&attributes) != 0)
             std::fprintf(stderr, "[boot] could not set the 16 MB default thread stack\n");
         pthread_attr_destroy(&attributes);
+#endif
     }
 #endif
 

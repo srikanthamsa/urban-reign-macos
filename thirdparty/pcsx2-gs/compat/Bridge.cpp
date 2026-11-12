@@ -9,6 +9,8 @@
 #if defined(_WIN32)
 #include "GS/Renderers/DX11/GSDevice11.h"
 #define PCSX2GS_EXPORT extern "C" __declspec(dllexport)
+#elif defined(__APPLE__)
+#define PCSX2GS_EXPORT extern "C" __attribute__((visibility("default")))
 #else
 #include <X11/Xlib.h>
 #define PCSX2GS_EXPORT extern "C" __attribute__((visibility("default")))
@@ -37,9 +39,14 @@ namespace
 #else
     constexpr GSRendererType kRenderer = GSRendererType::VK;
     constexpr const char *kRendererName = "Vulkan";
+#if defined(__APPLE__)
+    // The NSView the GS renders into. PCSX2 creates its CAMetalLayer on the main thread when the Vulkan swap chain
+    // is built (CocoaTools::CreateMetalLayer).
+#else
     // The X11 connection the Vulkan surface is created on: the library's own, opened on the GS thread, so that it is
     // never shared with the game window's (GLFW, main thread). The window itself is the port's child window (its XID).
     Display *g_display = nullptr;
+#endif
 #endif
 
     // Urban Reign's entry in PCSX2's GameIndex.yaml (SLUS-21209): alignSprite 1, textureInsideRT 1,
@@ -123,6 +130,10 @@ namespace
 #if defined(_WIN32)
         g_window.type = WindowInfo::Type::Win32;
         g_window.window_handle = params->hwnd;
+#elif defined(__APPLE__)
+        g_window.type = WindowInfo::Type::MacOS;
+        g_window.window_handle = params->hwnd; // NSView*
+        g_window.surface_handle = params->surface; // CAMetalLayer created on the main thread
 #else
         if (!g_display)
             g_display = XOpenDisplay(nullptr);
@@ -173,7 +184,7 @@ namespace
             return;
         GSclose();
         g_open = false;
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__APPLE__)
         if (g_display)
         {
             XCloseDisplay(g_display);

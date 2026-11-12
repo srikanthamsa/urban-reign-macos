@@ -145,7 +145,13 @@ bool dyn_shaderc::Open()
 	// Use versioned, bundle post-processing adds it..
 	const std::string libname = DynamicLibrary::GetVersionedFilename("shaderc_shared", 1);
 #endif
-	if (!s_library.Open(libname.c_str(), &error))
+#if defined(__APPLE__)
+	// The port points this at the shaderc dylib shipped next to urban/GS; Homebrew's lib directory is not on the
+	// default dyld search path.
+	if (const char *explicit_path = std::getenv("PS2X_SHADERC_PATH"); explicit_path && *explicit_path)
+		s_library.Open(explicit_path, &error);
+#endif
+	if (!s_library.IsOpen() && !s_library.Open(libname.c_str(), &error))
 	{
 #ifndef _WIN32
 		// Urban Reign port: Debian/Ubuntu's libshaderc1 ships the same library as libshaderc.so.1.

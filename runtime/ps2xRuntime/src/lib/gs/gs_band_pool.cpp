@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <string>
-#include <xmmintrin.h>
+#include "ps2_simd.h"
 
 GSBandPool::GSBandPool(unsigned workers)
 {

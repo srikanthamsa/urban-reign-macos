@@ -89,7 +89,7 @@ else()
     # the executable, which a launcher can also load to list the controllers. PS2X_SDL_INPUT=0 at run time reads GLFW's
     # gamepads instead.
     option(PS2X_ENABLE_SDL_INPUT "Read controllers through SDL3" ON)
-    if(PS2X_ENABLE_SDL_INPUT AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+    if(PS2X_ENABLE_SDL_INPUT AND (WIN32 OR APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
         set(SDL_SHARED ON CACHE BOOL "" FORCE)
         set(SDL_STATIC OFF CACHE BOOL "" FORCE)
         set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
@@ -103,7 +103,9 @@ else()
         # X11 extension headers (XScrnSaver...) and Wayland.
         if(NOT WIN32)
             set(SDL_VIDEO OFF CACHE BOOL "" FORCE)
-            set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "" FORCE)
+            if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+                set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "" FORCE)
+            endif()
         endif()
         FetchContent_Declare(
             SDL3
@@ -429,6 +431,7 @@ add_library(ps2_runtime STATIC
     src/lib/gs/gpu/gs_gl.cpp
     src/lib/gs/gpu/gs_gpu_backend.cpp
     src/lib/gs/gpu/gs_gpu_shaders.cpp
+    $<$<PLATFORM_ID:Darwin>:src/lib/gs/gs_pcsx2_backend_mac.mm>
     src/lib/ps2_iop_host.cpp
     src/lib/ps2_async_vif.cpp
     src/lib/ps2_memory.cpp
@@ -622,6 +625,11 @@ elseif(NOT PS2X_IS_VITA AND NOT PS2X_IS_ANDROID)
     endif()
 endif()
 
+if(APPLE)
+    set_source_files_properties(src/lib/gs/gs_pcsx2_backend_mac.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(ps2_runtime PRIVATE "-framework AppKit" "-framework QuartzCore" "-framework Metal")
+endif()
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     EnableFastReleaseMode(ps2_runtime)
     EnableFastReleaseMode(ps2EntryRunner)
@@ -683,3 +691,9 @@ endif()
 install(DIRECTORY include/
     DESTINATION include
 )
+
+if(APPLE)
+    add_executable(ps2x_gs_window_smoke test/gs_window_smoke.cpp)
+    target_link_libraries(ps2x_gs_window_smoke PRIVATE ps2_runtime raylib)
+    set_target_properties(ps2x_gs_window_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endif()

@@ -10,8 +10,8 @@
 #include <cstring>
 #include <random>
 #include <string>
-#include <xmmintrin.h>
-#include <pmmintrin.h>
+#include "ps2_simd.h"
+#include "ps2_simd.h"
 
 struct Vu0CorpusEntry
 {

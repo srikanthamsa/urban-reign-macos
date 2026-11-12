@@ -280,8 +280,12 @@ GSRendererType GSUtil::GetPreferredRenderer()
 	if (preferred_renderer == GSRendererType::Auto)
 	{
 #if defined(__APPLE__)
-		// Mac: Prefer Metal hardware.
-		preferred_renderer = GSRendererType::Metal;
+		// This build uses PCSX2's Vulkan device over MoltenVK on macOS. The Metal backend is not compiled in.
+#if defined(ENABLE_VULKAN)
+		preferred_renderer = GSRendererType::VK;
+#else
+		preferred_renderer = GSRendererType::SW;
+#endif
 #elif defined(_WIN32) && defined(ARCH_ARM64)
 		// Default to DX12 on Windows-on-ARM.
 		preferred_renderer = GSRendererType::DX12;

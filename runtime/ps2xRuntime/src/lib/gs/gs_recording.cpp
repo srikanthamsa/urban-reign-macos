@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <type_traits>
-#include <xmmintrin.h>
+#include "ps2_simd.h"
 
 namespace
 {

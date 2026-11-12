@@ -6,11 +6,8 @@
 #include <bit>
 #if defined(_MSC_VER)
 #include <intrin.h>
-#elif defined(USE_SSE2NEON)
-#include "sse2neon.h"
-#else
-#include <immintrin.h> // For SSE/AVX intrinsics
 #endif
+#include "ps2_simd.h"
 
 #include "ps2_runtime.h"
 

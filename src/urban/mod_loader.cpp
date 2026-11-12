@@ -240,7 +240,11 @@ namespace urban::modloader
             mod.dll = nullptr;
         }
 #else
+#if defined(__APPLE__)
+        constexpr const char *kLibraryExtension = ".dylib";
+#else
         constexpr const char *kLibraryExtension = ".so";
+#endif
 
         bool openLibrary(Mod &mod, const std::filesystem::path &path)
         {

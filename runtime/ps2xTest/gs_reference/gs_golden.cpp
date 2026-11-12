@@ -7,7 +7,7 @@
 #include <cstring>
 #include <filesystem>
 #include <sstream>
-#include <xmmintrin.h>
+#include "ps2_simd.h"
 
 namespace
 {

@@ -4,7 +4,7 @@
 #include <cstring>
 #include <vector>
 #include <cstdlib>
-#include <smmintrin.h>
+#include "ps2_simd.h"
 
 enum VIFCmd : uint8_t
 {

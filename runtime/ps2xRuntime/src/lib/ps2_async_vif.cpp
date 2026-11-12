@@ -14,7 +14,7 @@
 #include <mutex>
 #include <thread>
 #include <algorithm>
-#include <xmmintrin.h>
+#include "ps2_simd.h"
 
 void ps2xGsReleaseStall();
 bool ps2xGsStallNeedsRelease();

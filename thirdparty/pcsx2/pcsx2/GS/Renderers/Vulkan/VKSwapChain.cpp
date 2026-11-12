@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#if defined(__APPLE__)
+#include <pthread.h>
+#endif
 
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
@@ -132,7 +135,10 @@ void VKSwapChain::DestroyVulkanSurface(VkInstance instance, WindowInfo* wi, VkSu
 	vkDestroySurfaceKHR(GSDeviceVK::GetInstance()->GetVulkanInstance(), surface, nullptr);
 
 #if defined(__APPLE__)
-	if (wi->type == WindowInfo::Type::MacOS && wi->surface_handle)
+	// CocoaTools::DestroyMetalLayer dispatches synchronously to the main queue. The swap chain is destroyed on the GS
+	// thread; blocking there can deadlock while raylib is inside its Cocoa event pump. The child NSView owns the layer
+	// for the life of the window, so leave it in place when this is not the main thread.
+	if (wi->type == WindowInfo::Type::MacOS && wi->surface_handle && pthread_main_np())
 		CocoaTools::DestroyMetalLayer(wi);
 #endif
 }

@@ -44,7 +44,9 @@ namespace ThreadNaming
         }
 
 #elif defined(__APPLE__)
-        pthread_setname_np(name.data());
+        // Darwin takes only the current thread and reads a C string; string_view is not NUL-terminated.
+        const std::string appleName(name.substr(0, 63));
+        pthread_setname_np(appleName.c_str());
 
 #elif defined(__linux__)
         // A string_view is not NUL-terminated, and Linux refuses names longer than 15 characters (ERANGE).

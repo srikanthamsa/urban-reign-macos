@@ -11,7 +11,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
-#include <emmintrin.h>
+#include "ps2_simd.h"
 #include <limits>
 #include <string>
 #include <vector>

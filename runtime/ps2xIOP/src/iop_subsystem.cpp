@@ -29,6 +29,8 @@
 #endif
 #include <windows.h>
 #pragma comment(lib, "Synchronization.lib") // WaitOnAddress / WakeByAddressSingle
+#elif defined(__APPLE__)
+#include <pthread.h>
 #else
 #include <climits>
 #include <ctime>
@@ -90,7 +92,16 @@ namespace ps2x::iop
         using BusyFlag = std::atomic<bool>;
 #else
         using BusyFlag = std::atomic<uint32_t>;
+#if !defined(__APPLE__)
         static_assert(sizeof(BusyFlag) == sizeof(uint32_t), "a futex word");
+#endif
+#endif
+
+#if defined(__APPLE__)
+        // One shared wait object for every BusyFlag. The predicate re-checks the flag, so a wake between the check and
+        // the wait is not lost.
+        std::mutex g_flagWaitMutex;
+        std::condition_variable g_flagWaitCv;
 #endif
 
         // Sleeps while the flag still holds `value` (re-checked by the system, so a wake in between is not lost), at most
@@ -99,6 +110,12 @@ namespace ps2x::iop
         {
 #if defined(_WIN32)
             WaitOnAddress(&flag, &value, sizeof(value), timeoutMs);
+#elif defined(__APPLE__)
+            // std::atomic::wait has no timeout in C++20/libc++, so use one shared condition variable. The predicate
+            // re-checks the flag, which makes a wake that lands between the check and the wait safe.
+            std::unique_lock<std::mutex> lock(g_flagWaitMutex);
+            g_flagWaitCv.wait_for(lock, std::chrono::milliseconds(timeoutMs),
+                                  [&] { return flag.load(std::memory_order_acquire) != (value ? 1u : 0u); });
 #else
             const timespec timeout{static_cast<time_t>(timeoutMs / 1000u), static_cast<long>(timeoutMs % 1000u) * 1000000L};
             syscall(SYS_futex, reinterpret_cast<uint32_t *>(&flag), FUTEX_WAIT_PRIVATE, value ? 1u : 0u, &timeout, nullptr, 0);
@@ -112,6 +129,13 @@ namespace ps2x::iop
                 WakeByAddressAll(&flag);
             else
                 WakeByAddressSingle(&flag);
+#elif defined(__APPLE__)
+            // Keep the same mutex/condition variable pair as sleepWhileFlag.
+            std::lock_guard<std::mutex> lock(g_flagWaitMutex);
+            if (all)
+                g_flagWaitCv.notify_all();
+            else
+                g_flagWaitCv.notify_one();
 #else
             syscall(SYS_futex, reinterpret_cast<uint32_t *>(&flag), FUTEX_WAKE_PRIVATE, all ? INT_MAX : 1, nullptr, nullptr, 0);
 #endif
@@ -409,6 +433,8 @@ namespace ps2x::iop
             t_onIopWorker = true;
 #if defined(_WIN32)
             SetThreadDescription(GetCurrentThread(), L"IOPThread"); // shows up in profilers (URBAN_NATIVE_PROFILE, F6)
+#elif defined(__APPLE__)
+            pthread_setname_np("IOPThread");
 #else
             pthread_setname_np(pthread_self(), "IOPThread");
 #endif

@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.21)
 
 project(UrbanReignPC LANGUAGES C CXX)
 
+if(APPLE)
+    # GLFW's Cocoa sources are .m (Objective-C), CocoaTools.mm is Objective-C++. Both languages must be enabled or
+    # CMake compiles .m as Objective-C++ and the SDK's C APIs stop accepting void* conversions.
+    enable_language(OBJC)
+    enable_language(OBJCXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -9,15 +16,35 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Clang/GCC (the Linux build, docs/LINUX.md): the same code model as MSVC's /fp:precise build. The runtime uses SSE4.1
 # intrinsics, which these compilers only accept with the ISA enabled (MSVC takes them without /arch). The recompiled
 # game code assumes MSVC's semantics: no type-based aliasing, wrapping signed arithmetic, no FMA contraction.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+    set(URBAN_ARCH_ARM64 ON)
+else()
+    set(URBAN_ARCH_ARM64 OFF)
+endif()
+
 if(NOT MSVC)
     if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
         set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
     endif()
-    add_compile_options(-msse4.1 -fno-strict-aliasing -fwrapv -ffp-contract=off)
+    if(URBAN_ARCH_ARM64)
+        # The runtime's SSE intrinsics are provided by sse2neon on Apple Silicon. Do not pass x86 ISA flags to an
+        # arm64 compiler: Apple Clang rejects -msse4.1/-mavx2 outright.
+        add_compile_options(-fno-strict-aliasing -fwrapv -ffp-contract=off)
+        add_compile_definitions(USE_SSE2NEON=1)
+        include_directories("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/sse2neon")
+    else()
+        add_compile_options(-msse4.1 -fno-strict-aliasing -fwrapv -ffp-contract=off)
+    endif()
     # The executable finds the libraries built next to it (SDL3, the PCSX2 GS) in its own folder.
-    set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
-    set(CMAKE_BUILD_RPATH "$ORIGIN")
-    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+    if(APPLE)
+        set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
+        set(CMAKE_BUILD_RPATH "@loader_path")
+        set(CMAKE_INSTALL_RPATH "@loader_path")
+    else()
+        set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+        set(CMAKE_BUILD_RPATH "$ORIGIN")
+        set(CMAKE_INSTALL_RPATH "$ORIGIN")
+    endif()
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # raylib's GLFW as X11 only: PCSX2's GS renders into an X11 child window of the game window (XWayland on a
@@ -54,7 +81,7 @@ add_subdirectory(src)
 # The mod kit's example (modsdk/): ExampleMod.dll (ExampleMod.so on Linux) in build/port/bin/mods/ExampleMod, to try
 # the mod API.
 option(URBAN_BUILD_MOD_EXAMPLE "Build modsdk/example (ExampleMod.dll / ExampleMod.so)" ON)
-if(URBAN_BUILD_MOD_EXAMPLE AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+if(URBAN_BUILD_MOD_EXAMPLE AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux" OR APPLE))
     set(URBAN_MODS_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/mods")
     add_subdirectory(modsdk/example)
     add_dependencies(urban ExampleMod)
@@ -62,7 +89,7 @@ endif()
 
 # The mods that ship with the game (mods/): built into build/port/bin/mods/<Name>.
 option(URBAN_BUILD_MODS "Build the mods in mods/ (CoopTool)" ON)
-if(URBAN_BUILD_MODS AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+if(URBAN_BUILD_MODS AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux" OR APPLE))
     set(URBAN_MODS_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/mods")
     add_subdirectory(mods/CoopTool)
     add_dependencies(urban CoopTool)
@@ -71,7 +98,7 @@ endif()
 # PCSX2's GS as pcsx2gs.dll (docs/GS_PCSX2.md): built with urban, loaded by it when [Video] Renderer=pcsx2. On Linux
 # libpcsx2gs.so on Vulkan (docs/LINUX.md).
 option(URBAN_PCSX2_GS "Build PCSX2's GS (pcsx2gs.dll / libpcsx2gs.so)" ON)
-if(URBAN_PCSX2_GS AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+if(URBAN_PCSX2_GS AND (WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux" OR APPLE))
     add_subdirectory(thirdparty/pcsx2-gs EXCLUDE_FROM_ALL)
     add_dependencies(urban pcsx2gs)
     target_link_libraries(ps2_runtime PRIVATE pcsx2gs_api)

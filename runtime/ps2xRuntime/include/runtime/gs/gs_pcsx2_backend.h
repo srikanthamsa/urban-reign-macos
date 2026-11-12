@@ -18,7 +18,8 @@ public:
     // Main thread: true when PS2X_GS_RENDERER asks for it and pcsx2gs.dll (libpcsx2gs.so) loads.
     static bool Requested();
     // Main thread, after the game window exists: creates the child window the GS renders into. parentHwnd is raylib's
-    // GetWindowHandle(): the HWND on Windows, the GLFWwindow* on Linux (an X11 child window then).
+    // GetWindowHandle(): the HWND on Windows, the GLFWwindow* on Linux (an X11 child window), or the NSWindow* on
+    // macOS (an NSView/CAMetalLayer child).
     static void AttachHostWindow(void *parentHwnd);
     // Main thread, once per host frame: keeps the child window over the parent's client area.
     static void HostTick();

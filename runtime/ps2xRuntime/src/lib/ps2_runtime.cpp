@@ -2,6 +2,7 @@
 #include "ps2_runtime.h"
 #include "runtime/ps2_save_state.h"
 #include "runtime/ps2_pnach.h"
+#include "runtime/host_thread.h"
 #include "runtime/ps2_game_menu.h"
 #include "runtime/ps2_display_options.h"
 #include "ps2_log.h"
@@ -2834,7 +2835,7 @@ void PS2Runtime::run()
     ps2_host_input::setFieldCounter(&m_memory.gs().vsyncTick);
     ps2_host_input::sample();
 
-    std::thread gameThread([&]()
+    HostThread gameThread([&]()
                            {
         ThreadNaming::SetCurrentThreadName("GameThread");
         ThreadPriority::RaiseCurrentThread(ThreadPriority::Level::Highest);

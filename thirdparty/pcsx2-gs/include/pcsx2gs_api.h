@@ -10,11 +10,12 @@
 extern "C" {
 #endif
 
-#define PCSX2GS_API_VERSION 4u
+#define PCSX2GS_API_VERSION 5u
 
 typedef struct Pcsx2GsOpenParams
 {
     void *hwnd;             // window to render into (a child of the game window): HWND on Windows, X11 Window (XID) on Linux
+    void *surface;          // macOS: the CAMetalLayer created on the main thread for hwnd (NSView*); null elsewhere
     uint32_t width;         // its client size
     uint32_t height;
     float scale;            // internal resolution multiplier (1 = native)

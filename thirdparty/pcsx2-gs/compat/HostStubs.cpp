@@ -22,6 +22,7 @@
 #include "R5900.h"
 #include "VMManager.h"
 #include "common/CrashHandler.h"
+#include "common/HostSys.h"
 #include "common/Image.h"
 #include "common/StringUtil.h"
 #include "imgui.h"
@@ -42,6 +43,16 @@
 #else
 #include <sys/mman.h>
 #endif
+
+// The GS library does not map the PS2's virtual memory, so a host page fault is never one of the EE's. Darwin's
+// PageFaultHandler still references this symbol; hand the fault back to the OS/debugger.
+namespace PageFaultHandler
+{
+    HandlerResult HandlePageFault(void*, void*, bool)
+    {
+        return HandlerResult::ExecuteNextHandler;
+    }
+}
 
 namespace
 {
@@ -335,7 +346,14 @@ u8 *SysMemory::GetCodePtr(size_t offset)
 #else
     static u8 *base = []
     {
-        void *memory = mmap(nullptr, HostMemoryMap::SWrecSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#if defined(__APPLE__)
+        // Apple Silicon JIT memory. HostSys::BeginCodeWrite/EndCodeWrite toggle pthread_jit_write_protect_np around
+        // the VIXL/xbyak code emission; that only works on a MAP_JIT mapping.
+        const int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT;
+#else
+        const int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+#endif
+        void *memory = mmap(nullptr, HostMemoryMap::SWrecSize, PROT_READ | PROT_WRITE | PROT_EXEC, flags, -1, 0);
         return memory == MAP_FAILED ? nullptr : static_cast<u8 *>(memory);
     }();
 #endif

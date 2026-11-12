@@ -6,6 +6,13 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif()
 
 # PCSX2's GS (hardware renderer) as libraries for the port (docs/GS_PCSX2.md). GPL-3, from github.com/PCSX2/pcsx2.
+if(NOT DEFINED URBAN_ARCH_ARM64)
+    if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+        set(URBAN_ARCH_ARM64 ON)
+    else()
+        set(URBAN_ARCH_ARM64 OFF)
+    endif()
+endif()
 # thirdparty/pcsx2: only the PCSX2 files this build compiles or includes (thirdparty/README.md says which commit and how
 # the list was made). Plain variables, not cache entries: an old cache pointing at a full PCSX2 clone does not win.
 # Windows: DX11 + DX12 into pcsx2gs.dll. Linux (docs/LINUX.md): Vulkan into libpcsx2gs.so, rendering into an X11 window.
@@ -17,7 +24,10 @@ set(DIRECTX_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../directx-headers")
 # off; its code does not throw, and the rest of urban.exe uses them).
 add_library(pcsx2_flags INTERFACE)
 target_compile_features(pcsx2_flags INTERFACE cxx_std_20)
-target_compile_definitions(pcsx2_flags INTERFACE _M_X86=1 IMGUI_USER_CONFIG="pcsx2gs_imconfig.h")
+target_compile_definitions(pcsx2_flags INTERFACE IMGUI_USER_CONFIG="pcsx2gs_imconfig.h")
+if(NOT URBAN_ARCH_ARM64 AND NOT (APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64"))
+    target_compile_definitions(pcsx2_flags INTERFACE _M_X86=1)
+endif()
 target_include_directories(pcsx2_flags INTERFACE
     "${P}" "${P}/pcsx2" "${CMAKE_CURRENT_SOURCE_DIR}/compat"
     "${P}/3rdparty/fmt/include" "${P}/3rdparty/imgui/include" "${P}/3rdparty/xbyak"
@@ -33,6 +43,13 @@ if(WIN32)
         /utf-8 /Zo /fp:contract /GS- /W0 /bigobj /MP)
     target_include_directories(pcsx2_flags INTERFACE
         "${P}/3rdparty/d3d12memalloc/include" "${P}/3rdparty/winwil/include" "${DIRECTX_HEADERS_DIR}/include")
+elseif(APPLE)
+    # Apple Silicon: PCSX2's Vulkan device over MoltenVK, with an NSView/CAMetalLayer surface. __SSE4_1__ does not
+    # exist here; PCSX2's ARCH_ARM64 paths and the ARM64 GS code generators are used instead.
+    find_package(PNG REQUIRED)
+    target_compile_definitions(pcsx2_flags INTERFACE __POSIX__ ENABLE_VULKAN)
+    target_compile_options(pcsx2_flags INTERFACE -w -fvisibility=hidden -fvisibility-inlines-hidden -ffp-contract=fast)
+    target_include_directories(pcsx2_flags INTERFACE "${P}/3rdparty/vulkan/include")
 else()
     # __SSE4_1__ comes with -msse4.1 (top-level CMakeLists). Hidden visibility: libpcsx2gs.so exports only the C
     # interface, and its ImGui/fmt never meet urban's (which exports its own symbols with -rdynamic).
@@ -77,17 +94,24 @@ set(COMMON_SOURCES
     SettingsWrapper.cpp SmallString.cpp StringUtil.cpp TextureDecompress.cpp Timer.cpp WindowInfo.cpp)
 if(WIN32)
     list(APPEND COMMON_SOURCES Windows/WinThreads.cpp Windows/WinHostSys.cpp Windows/WinMisc.cpp)
+elseif(APPLE)
+    list(APPEND COMMON_SOURCES CocoaTools.mm Darwin/DarwinThreads.cpp Darwin/DarwinMisc.cpp Linux/LnxHostSys.cpp)
 else()
     list(APPEND COMMON_SOURCES Linux/LnxThreads.cpp Linux/LnxHostSys.cpp)
 endif()
 list(TRANSFORM COMMON_SOURCES PREPEND "${P}/common/")
-if(NOT WIN32)
+if(NOT WIN32 AND NOT APPLE)
     # PCSX2's LnxMisc.cpp without the screensaver (dbus), mouse (XInput2) and sound parts the GS does not use.
     list(APPEND COMMON_SOURCES compat/LnxMisc.cpp)
 endif()
 add_library(pcsx2_common STATIC ${COMMON_SOURCES})
 target_link_libraries(pcsx2_common PRIVATE pcsx2_flags cpuinfo)
-if(NOT WIN32)
+if(APPLE)
+    set_source_files_properties("${P}/common/CocoaTools.mm" PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(pcsx2_common PUBLIC
+        "-framework Foundation" "-framework AppKit" "-framework IOKit" "-framework QuartzCore"
+        ${CMAKE_DL_LIBS})
+elseif(NOT WIN32)
     target_link_libraries(pcsx2_common PUBLIC X11::X11 X11::Xrandr ${CMAKE_DL_LIBS}) # WindowInfo: refresh rate (XRandR)
 endif()
 
@@ -103,8 +127,16 @@ set(GS_SOURCES
     GS/Renderers/HW/GSTextureCache.cpp GS/Renderers/SW/GSTextureCacheSW.cpp
     GS/GSBlock.cpp GS/GSLocalMemoryMultiISA.cpp GS/GSXXH.cpp GS/Renderers/Common/GSVertexTraceFMM.cpp
     GS/Renderers/HW/GSRendererHWMultiISA.cpp GS/Renderers/SW/GSDrawScanline.cpp GS/Renderers/SW/GSRasterizer.cpp
-    GS/Renderers/SW/GSRendererSW.cpp GS/Renderers/SW/GSDrawScanlineCodeGenerator.all.cpp
-    GS/Renderers/SW/GSSetupPrimCodeGenerator.all.cpp GS/Renderers/HW/GSTextureReplacements.cpp)
+    GS/Renderers/SW/GSRendererSW.cpp GS/Renderers/HW/GSTextureReplacements.cpp)
+if(URBAN_ARCH_ARM64)
+    list(APPEND GS_SOURCES
+        GS/Renderers/SW/GSDrawScanlineCodeGenerator.arm64.cpp
+        GS/Renderers/SW/GSSetupPrimCodeGenerator.arm64.cpp)
+else()
+    list(APPEND GS_SOURCES
+        GS/Renderers/SW/GSDrawScanlineCodeGenerator.all.cpp
+        GS/Renderers/SW/GSSetupPrimCodeGenerator.all.cpp)
+endif()
 if(WIN32)
     list(APPEND GS_SOURCES
         GS/Renderers/DX11/D3D.cpp GS/Renderers/DX11/D3D11ShaderCache.cpp GS/Renderers/DX11/GSDevice11.cpp
@@ -119,6 +151,10 @@ else()
         GS/Renderers/Vulkan/VKBuilders.cpp GS/Renderers/Vulkan/VKLoader.cpp GS/Renderers/Vulkan/VKShaderCache.cpp
         GS/Renderers/Vulkan/VKStreamBuffer.cpp GS/Renderers/Vulkan/VKSwapChain.cpp)
 endif()
+if(URBAN_ARCH_ARM64)
+    set(CPUINFO_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${P}/3rdparty/vixl" "${CMAKE_CURRENT_BINARY_DIR}/vixl" EXCLUDE_FROM_ALL)
+endif()
 list(TRANSFORM GS_SOURCES PREPEND "${P}/pcsx2/")
 # Texture replacement loaders: PCSX2's file with its PNG handlers in compat/PngLoader.inl (WIC on Windows, libpng
 # elsewhere; tools/make_loaders.py); .zip texture packs are left out (compat/zip.h).
@@ -128,6 +164,14 @@ target_link_libraries(pcsx2_gs PRIVATE pcsx2_flags)
 target_link_libraries(pcsx2_gs PUBLIC pcsx2_common pcsx2_fmt pcsx2_imgui cpuinfo)
 if(WIN32)
     target_link_libraries(pcsx2_gs PUBLIC pcsx2_d3d12ma d3d11 d3d12 dxgi d3dcompiler dxguid winmm windowscodecs ole32)
+elseif(APPLE)
+    find_path(SHADERC_INCLUDE_DIR shaderc/shaderc.h REQUIRED)
+    target_include_directories(pcsx2_gs PRIVATE "${SHADERC_INCLUDE_DIR}")
+    target_link_libraries(pcsx2_gs PUBLIC PNG::PNG
+        "-framework Foundation" "-framework AppKit" "-framework QuartzCore" "-framework Metal" "-framework IOKit")
+    if(URBAN_ARCH_ARM64)
+        target_link_libraries(pcsx2_gs PRIVATE vixl)
+    endif()
 else()
     # The shaderc header (the library itself is loaded at run time).
     find_path(SHADERC_INCLUDE_DIR shaderc/shaderc.h REQUIRED)
@@ -165,7 +209,29 @@ if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set_target_properties(pcsx2gs PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
                                              LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()
-if(NOT WIN32)
+if(APPLE)
+    target_link_options(pcsx2gs PRIVATE -Wl,-undefined,error -fobjc-link-runtime)
+    # The GS loads MoltenVK and shaderc by name at run time. Ship the two Homebrew dylibs beside it so urban does not
+    # need DYLD_LIBRARY_PATH (the backend points LIBVULKAN_PATH/PS2X_SHADERC_PATH at these copies).
+    find_file(URBAN_MOLTENVK_DYLIB NAMES libMoltenVK.dylib HINTS /opt/homebrew/lib /usr/local/lib)
+    find_file(URBAN_SHADERC_DYLIB NAMES libshaderc_shared.1.dylib HINTS /opt/homebrew/lib /usr/local/lib)
+    if(URBAN_MOLTENVK_DYLIB)
+        add_custom_command(TARGET pcsx2gs POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${URBAN_MOLTENVK_DYLIB}" "$<TARGET_FILE_DIR:pcsx2gs>/libMoltenVK.dylib" VERBATIM)
+    else()
+        message(WARNING "libMoltenVK.dylib not found; install MoltenVK or set LIBVULKAN_PATH at run time")
+    endif()
+    if(URBAN_SHADERC_DYLIB)
+        add_custom_command(TARGET pcsx2gs POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${URBAN_SHADERC_DYLIB}" "$<TARGET_FILE_DIR:pcsx2gs>/libshaderc_shared.1.dylib" VERBATIM)
+    else()
+        message(WARNING "libshaderc_shared.1.dylib not found; install shaderc")
+    endif()
+    add_executable(pcsx2_gs_test_mac test/GSTestCocoa.mm)
+    target_link_libraries(pcsx2_gs_test_mac PRIVATE pcsx2gs_api ${CMAKE_DL_LIBS} "-framework AppKit")
+    add_dependencies(pcsx2_gs_test_mac pcsx2gs)
+    set_target_properties(pcsx2_gs_test_mac PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+elseif(NOT WIN32)
     # Every symbol resolved at link time (a missing host stub is a link error, not a dlopen failure), the static
     # libraries' symbols kept inside, and calls between them bound inside the library.
     target_link_options(pcsx2gs PRIVATE -Wl,--no-undefined -Wl,--exclude-libs,ALL -Wl,-Bsymbolic)

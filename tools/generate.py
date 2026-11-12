@@ -58,10 +58,11 @@ def find_iso(arg):
 
 
 def find_recompiler():
-    if os.name != "nt":  # Linux (docs/LINUX.md): only the one built from runtime/ps2xRecomp
-        candidate = os.path.join(ROOT, "build", "linux", "runtime", "ps2xRecomp", "ps2_recomp")
-        if os.path.exists(candidate):
-            return candidate
+    if os.name != "nt":  # macOS/Linux: only the one built from runtime/ps2xRecomp
+        for platform_dir in ("macos", "linux"):
+            candidate = os.path.join(ROOT, "build", platform_dir, "runtime", "ps2xRecomp", "ps2_recomp")
+            if os.path.exists(candidate):
+                return candidate
         sys.exit("ps2_recomp not found (python build.py generate builds it: -DURBAN_BUILD_RECOMP=ON, target ps2_recomp)")
     candidates = [
         os.path.join(ROOT, "build", "port", "runtime", "ps2xRecomp", "ps2_recomp.exe"),

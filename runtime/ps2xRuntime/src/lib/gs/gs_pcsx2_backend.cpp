@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#if (defined(_WIN32) || defined(__linux__)) && __has_include("pcsx2gs_api.h")
+#if (defined(_WIN32) || defined(__linux__) || defined(__APPLE__)) && __has_include("pcsx2gs_api.h")
 #include "pcsx2gs_api.h"
 #define PS2X_HAS_PCSX2_GS 1
 #if defined(_WIN32)
@@ -24,6 +24,12 @@
 #endif
 #include <Windows.h>
 #define PS2X_PCSX2GS_CALL __cdecl
+#elif defined(__APPLE__)
+// macOS: libpcsx2gs.dylib (Vulkan over MoltenVK) renders into a child NSView over raylib's GLFW content view.
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#include "gs_pcsx2_backend_mac.h"
+#define PS2X_PCSX2GS_CALL
 #else
 // Linux (docs/LINUX.md): libpcsx2gs.so (Vulkan) renders into an X11 child window of the game window.
 #include <X11/Xlib.h>
@@ -45,6 +51,10 @@ namespace
 #if defined(_WIN32)
     HWND g_parent = nullptr;
     HWND g_child = nullptr;
+#elif defined(__APPLE__)
+    void *g_parent = nullptr;
+    void *g_child = nullptr;
+    void *g_surface = nullptr;
 #else
     // The main thread's own X11 connection (GLFW's stays GLFW's); the library opens another one on the GS thread.
     Display *g_display = nullptr;
@@ -61,6 +71,18 @@ namespace
         wchar_t path[MAX_PATH] = {};
         const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
         return length ? std::filesystem::path(path).parent_path() : std::filesystem::current_path();
+#elif defined(__APPLE__)
+        uint32_t size = 0;
+        _NSGetExecutablePath(nullptr, &size);
+        std::vector<char> buffer(size, '\0');
+        if (_NSGetExecutablePath(buffer.data(), &size) == 0)
+        {
+            std::error_code error;
+            const std::filesystem::path self = std::filesystem::canonical(buffer.data(), error);
+            if (!error && !self.empty())
+                return self.parent_path();
+        }
+        return std::filesystem::current_path();
 #else
         std::error_code error;
         const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
@@ -95,7 +117,7 @@ namespace
             return DefWindowProcW(hwnd, msg, wparam, lparam);
         }
     }
-#else
+#elif !defined(__APPLE__)
     // The game window's client size (X11).
     void parentSize(uint32_t &width, uint32_t &height)
     {
@@ -229,7 +251,24 @@ bool GSPcsx2Backend::Requested()
         }
         const auto symbol = [module](const char *name) { return reinterpret_cast<void *>(GetProcAddress(module, name)); };
 #else
+#if defined(__APPLE__)
+        const std::filesystem::path dir = exeDirectory();
+        const std::filesystem::path dll = dir / "libpcsx2gs.dylib";
+        // PCSX2 loads these two by bare name. Point it at the copies shipped next to urban before GSopen runs.
+        const auto setBundled = [&dir](const char *variable, const char *filename)
+        {
+            if (std::getenv(variable))
+                return;
+            const std::filesystem::path path = dir / filename;
+            std::error_code error;
+            if (std::filesystem::is_regular_file(path, error))
+                setenv(variable, path.c_str(), 1);
+        };
+        setBundled("LIBVULKAN_PATH", "libMoltenVK.dylib");
+        setBundled("PS2X_SHADERC_PATH", "libshaderc_shared.1.dylib");
+#else
         const std::filesystem::path dll = exeDirectory() / "libpcsx2gs.so";
+#endif
         void *module = dlopen(dll.c_str(), RTLD_NOW | RTLD_LOCAL);
         if (!module)
         {
@@ -280,6 +319,20 @@ void GSPcsx2Backend::AttachHostWindow(void *parentHwnd)
     }
     g_clientWidth.store(width);
     g_clientHeight.store(height);
+#elif defined(__APPLE__)
+    // parentHwnd: raylib's GLFWwindow*. Create a transparent, hit-testless child NSView; PCSX2 attaches its
+    // CAMetalLayer to it when the Vulkan swap chain is created.
+    // raylib's GetWindowHandle() is the NSWindow* here.
+    g_parent = parentHwnd;
+    uint32_t width = 1u, height = 1u;
+    g_child = gs_pcsx2_mac::AttachHostWindow(parentHwnd, width, height, g_surface);
+    if (!g_child)
+    {
+        std::fprintf(stderr, "[gs] PCSX2 GS: could not create the macOS child view\n");
+        return;
+    }
+    g_clientWidth.store(width);
+    g_clientHeight.store(height);
 #else
     // parentHwnd: raylib's GLFWwindow*. The child selects no input, so the pointer events go on to the game window (X11
     // propagates them to the first ancestor that selected them), and the keyboard focus stays on the game window.
@@ -322,6 +375,9 @@ void GSPcsx2Backend::HostTick()
     GetClientRect(g_parent, &rect);
     const uint32_t width = static_cast<uint32_t>(std::max<LONG>(1, rect.right - rect.left));
     const uint32_t height = static_cast<uint32_t>(std::max<LONG>(1, rect.bottom - rect.top));
+#elif defined(__APPLE__)
+    uint32_t width = 1u, height = 1u;
+    gs_pcsx2_mac::HostTick(g_child, width, height);
 #else
     uint32_t width = 1u, height = 1u;
     parentSize(width, height);
@@ -330,7 +386,7 @@ void GSPcsx2Backend::HostTick()
         return;
 #if defined(_WIN32)
     SetWindowPos(g_child, nullptr, 0, 0, static_cast<int>(width), static_cast<int>(height), SWP_NOZORDER | SWP_NOACTIVATE);
-#else
+#elif !defined(__APPLE__)
     XResizeWindow(g_display, g_child, width, height);
     XFlush(g_display);
 #endif
@@ -378,6 +434,8 @@ void GSPcsx2Backend::SetHostUiVisible(bool visible)
     g_hostUiVisible = visible;
 #if defined(_WIN32)
     ShowWindow(g_child, visible ? SW_HIDE : SW_SHOWNA);
+#elif defined(__APPLE__)
+    gs_pcsx2_mac::SetVisible(g_child, !visible);
 #else
     if (visible)
         XUnmapWindow(g_display, g_child);
@@ -422,6 +480,9 @@ bool GSPcsx2Backend::EnsureOpen()
     m_height = g_clientHeight.load();
     Pcsx2GsOpenParams params{};
     params.hwnd = reinterpret_cast<void *>(g_child);
+#if defined(__APPLE__)
+    params.surface = g_surface;
+#endif
     params.width = m_width;
     params.height = m_height;
     params.scale = static_cast<float>(std::clamp(envInt("PS2X_GS_SCALE", 1), 1, 8));
@@ -429,6 +490,9 @@ bool GSPcsx2Backend::EnsureOpen()
     params.cache = cache.c_str();
 #if defined(_WIN32)
     constexpr int kDefaultVsync = 2; // mailbox: no tearing, no wait
+#elif defined(__APPLE__)
+    // MoltenVK/Metal: FIFO is the reliable, tear-free path. PS2X_PCSX2_VSYNC=0/2 still selects immediate/mailbox.
+    constexpr int kDefaultVsync = 1;
 #else
     // Linux: present without waiting. NVIDIA offers no mailbox for an X11 window under XWayland, so PCSX2 fell back to
     // FIFO, which made the GS thread wait for the compositor: a 4-fighter fight at ~52 frames/s (minimum 30) instead of

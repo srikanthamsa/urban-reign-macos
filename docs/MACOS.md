@@ -1,0 +1,92 @@
+# macOS / Apple Silicon build
+
+This branch builds `urban` natively for arm64 macOS, with PCSX2's GS Vulkan renderer over MoltenVK. It uses raylib
+for the window/input/debug UI, SDL3 for controllers, and `sse2neon` for the runtime's SSE intrinsics. Nothing is
+emulated through Rosetta except the (separate) PCSX2 application if you choose to use it as a reference.
+
+## Requirements
+
+- Apple Silicon Mac (M1 or newer), macOS 14 or newer.
+- Xcode command line tools.
+- Homebrew.
+- Your own Urban Reign (USA, `SLUS-21209`) disc image in `game/`. The repository contains no game data.
+
+Install the toolchain and libraries:
+
+```sh
+./tools/macos/install_deps.sh
+```
+
+This installs CMake, Ninja, pkg-config, SDL3, shaderc, MoltenVK, Vulkan headers and libpng. CMake copies
+`libMoltenVK.dylib` and `libshaderc_shared.1.dylib` next to the built GS library, so no `DYLD_LIBRARY_PATH` is
+needed at run time.
+
+## Build
+
+```sh
+python3 build.py
+```
+
+The menu runs the same three steps as the other platforms:
+
+1. **Generate the game code** from your own `.iso` (`ps2_recomp`, built natively for arm64).
+2. **Build `urban`** into `build/macos/bin/urban`.
+3. **Play**.
+
+By hand:
+
+```sh
+python3 build.py generate
+python3 build.py build
+python3 build.py play
+```
+
+The first configure downloads raylib, SDL3, imgui and the recompiler dependencies; the first full generated-code build
+is the long part. Incremental builds only rebuild what changed.
+
+To make a locally signed app bundle:
+
+```sh
+./tools/macos/make_app.sh
+open "build/macos/Urban Reign.app"
+```
+
+The image is looked up in `game/` next to the executable; inside the bundle that is
+`Contents/MacOS/game/`. The script copies any `game/*.iso` there.
+
+## Renderer
+
+`libpcsx2gs.dylib` is built with PCSX2's Vulkan device, MoltenVK, and an `NSView`/`CAMetalLayer` child over raylib's
+window. The child ignores hit testing, so input remains with GLFW. The default `PS2X_PCSX2_VSYNC` is FIFO on macOS;
+`0` (immediate) and `2` (mailbox) are available for testing.
+
+The port's own OpenGL GS remains Windows-only. On macOS, leave `[Video] Renderer=pcsx2`; if the dylib is missing the
+software GS is the fallback, but it is only a diagnostic path.
+
+## Verification without a disc
+
+Two small targets are built to prove the macOS graphics plumbing without game data:
+
+```sh
+cmake --build build/macos --target pcsx2_gs_test_mac ps2x_gs_window_smoke
+cd build/macos/bin
+./pcsx2_gs_test_mac ./libpcsx2gs.dylib       # MoltenVK device + present
+./ps2x_gs_window_smoke                       # raylib NSWindow + NSView/CAMetalLayer child + GS presents
+```
+
+`ps2x_gs_window_smoke` should print `GS window attached: yes` and PCSX2 should report `60 fields`.
+
+## Known limits
+
+- The OpenGL native GS backend is not ported; PCSX2/Vulkan is the supported path.
+- Debug tools that depend on Windows (`native_profile`, F10 combat capture, hardware watchpoints) are compiled out or
+  no-ops on macOS.
+- Mods are `.dylib` on macOS; CoopTool and ExampleMod are built by the normal target set.
+- `tools/macos/make_app.sh` wraps the build into a locally signed `Urban Reign.app`. Distributing it needs a real
+  Developer ID signature/notarization and a review of the GPL/asset obligations.
+- The game still requires a legally owned disc image; no game files are included.
+
+## Licensing
+
+The port keeps the upstream GPL-3.0 licensing. sse2neon is MIT; MoltenVK, shaderc and the other Homebrew libraries
+keep their own licenses.

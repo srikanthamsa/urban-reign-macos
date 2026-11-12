@@ -22,8 +22,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 WINDOWS = os.name == "nt"
-# Windows: build/port with MSVC; Linux: build/linux with Clang (docs/LINUX.md).
-BUILD = ROOT / "build" / ("port" if WINDOWS else "linux")
+DARWIN = sys.platform == "darwin"
+# Windows: build/port with MSVC; macOS: build/macos with Apple Clang; Linux: build/linux with Clang (docs/LINUX.md).
+BUILD = ROOT / "build" / ("port" if WINDOWS else "macos" if DARWIN else "linux")
 BIN = BUILD / "bin"
 EXE = "urban.exe" if WINDOWS else "urban"
 VSENV = ROOT / "tools" / "win" / "vsenv.cmd"
@@ -50,17 +51,24 @@ def game_running():
 
 
 def has_generated_code():
-    return (ROOT / "generated" / "register_functions.cpp").exists()
+    generated = Path(os.environ.get("URBAN_GENERATED_DIR", ROOT / "generated"))
+    return (generated / "register_functions.cpp").exists()
 
 
 def configure(extra=()):
     args = ["cmake", "-S", ROOT, "-B", BUILD, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=RelWithDebInfo"]
+    if DARWIN:
+        args += ["-DCMAKE_OSX_ARCHITECTURES=arm64"]
     if not WINDOWS:
         # Clang and LLD (the generated code compiles in minutes with Clang; docs/LINUX.md). URBAN_CC/URBAN_CXX override.
         args += [f"-DCMAKE_C_COMPILER={os.environ.get('URBAN_CC', 'clang')}",
                  f"-DCMAKE_CXX_COMPILER={os.environ.get('URBAN_CXX', 'clang++')}"]
-        if shutil.which("ld.lld"):
+        if not DARWIN and shutil.which("ld.lld"):
             args.append("-DCMAKE_LINKER_TYPE=LLD")
+    # URBAN_GENERATED_DIR: a generated-code folder to use instead of <repo>/generated (platform bring-up/tests).
+    generated_override = os.environ.get("URBAN_GENERATED_DIR")
+    if generated_override:
+        args.append(f"-DURBAN_GENERATED_DIR={generated_override}")
     # URBAN_DEPS: a FetchContent _deps folder already downloaded (raylib-src, ...) to reuse instead of downloading.
     deps = os.environ.get("URBAN_DEPS")
     if deps:
@@ -148,6 +156,9 @@ def launcher_from_source(args=()):
 
 
 def release(args=()):
+    if DARWIN:
+        print("macOS release packaging is not implemented yet; use the build/macos/bin folder.")
+        return 1
     if not WINDOWS:
         return run([sys.executable, ROOT / "tools" / "linux" / "release.py", *args])
     return run([sys.executable, ROOT / "tools" / "release.py"])
@@ -162,6 +173,8 @@ def open_game_folder():
         print("Not built yet.")
     elif WINDOWS:
         os.startfile(BIN)
+    elif DARWIN:
+        run(["open", BIN])
     else:
         run(["xdg-open", BIN])
 

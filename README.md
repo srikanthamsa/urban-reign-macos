@@ -63,6 +63,18 @@ rest bots, every one for himself or custom teams, Free Mode stages) and Free Mod
 of enemies, objective, each fighter's character / AI / strength / health, optional partner, enhanced camera with
 L3 / R3). Its **How to use** tab explains each part.
 
+### macOS (Apple Silicon)
+
+This branch adds a native arm64 macOS build. It requires Xcode command line tools, Homebrew, and your own disc image.
+
+```sh
+./tools/macos/install_deps.sh
+python3 build.py
+```
+
+The build uses Apple Clang, sse2neon, SDL3, raylib and PCSX2's Vulkan GS over MoltenVK. Details and the no-disc
+graphics smoke tests are in [`docs/MACOS.md`](docs/MACOS.md). Packaging as a signed `.app` is not implemented yet.
+
 ### Linux
 
 From the [**latest release**](../../releases/latest), pick one:
