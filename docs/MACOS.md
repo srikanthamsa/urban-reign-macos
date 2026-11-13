@@ -1,8 +1,8 @@
 # macOS / Apple Silicon build
 
 This branch builds `urban` natively for arm64 macOS, with PCSX2's GS Vulkan renderer over MoltenVK. It uses raylib
-for the window/input/debug UI, SDL3 for controllers, and `sse2neon` for the runtime's SSE intrinsics. Nothing is
-emulated through Rosetta except the (separate) PCSX2 application if you choose to use it as a reference.
+for the window/input/debug UI, SDL3 for controllers, and `sse2neon` for the runtime's SSE intrinsics. Nothing runs
+under Rosetta — there is no emulator in the loop.
 
 ## Requirements
 
@@ -44,15 +44,59 @@ python3 build.py play
 The first configure downloads raylib, SDL3, imgui and the recompiler dependencies; the first full generated-code build
 is the long part. Incremental builds only rebuild what changed.
 
-To make a locally signed app bundle:
+## App bundle
 
 ```sh
 ./tools/macos/make_app.sh
 open "build/macos/Urban Reign.app"
 ```
 
-The image is looked up in `game/` next to the executable; inside the bundle that is
-`Contents/MacOS/game/`. The script copies any `game/*.iso` there.
+The bundle gets the binary, every dylib from `bin/`, `resources`, `shadercache_pcsx2`, `mods`, `memcards`, `states`
+and any `game/*.iso`. The image is looked up in `game/` next to the executable, which inside the bundle is
+`Contents/MacOS/game/`.
+
+`make_app.sh` signs the bundle ad-hoc and clears the extended attributes Homebrew leaves on its dylibs (codesign
+rejects those). A local unsigned/ad-hoc build runs; distributing it needs a real Developer ID signature and
+notarization, plus a review of the GPL/asset obligations.
+
+**Optional icon.** Put `assets/UrbanReign.icns` in the repository root before running the script and the bundle gets
+it (`CFBundleIconFile`). `assets/` is gitignored: the icon is game art and is not distributed.
+
+**Distributable ZIP.**
+
+```sh
+python3 build.py release      # build/release/urban-reign-macos-arm64.zip
+```
+
+This stages a fresh bundle outside the repository (iCloud-synced folders add `com.apple.FinderInfo`, which codesign
+refuses), strips the disc image, memory cards, save states and local settings, signs it, and zips it (~26 MB).
+
+## Steam
+
+Add the app as a non-Steam shortcut (Steam → Games → Add a Non-Steam Game → Browse) and launch it from the library,
+so the overlay and play time work.
+
+macOS specifics:
+
+- Steam fails to spawn a shortcut whose executable path contains spaces. Use a space-free path, for example a
+  symlink such as `~/UrbanReign.app` pointing at the built bundle.
+- `~/Downloads` and `~/Desktop` are TCC-protected. A Steam-launched app cannot read a disc image stored there;
+  keep the image inside the bundle (`Contents/MacOS/game/`) or in `game/`.
+- Launch it from Steam, not from Terminal, or the overlay renderer is never injected.
+
+## Remote Play Together
+
+Steam does not offer Remote Play Together for non-Steam shortcuts. [`rpt-mac`](../tools/rpt-mac) attaches to the
+running client through `steamclient.dylib` and drives `IClientRemoteClientManager` directly:
+
+```sh
+cd tools/rpt-mac && make
+./rptmac apps "Urban Reign"           # appid, name, exe of the shortcut
+./rptmac host <appid> game 2          # two guest links, stays alive until Ctrl-C
+```
+
+`verify` prints the interface's state and refuses builds whose vtable layout has not been mapped. Guest-side
+streaming and input are still unverified (no second Steam account here).
 
 ## Renderer
 
@@ -67,19 +111,19 @@ software GS is the fallback, but it is only a diagnostic path.
 
 On an M4 Air with the USA `SLUS-21209` image, the native build boots through the PlayStation 2 logo, the intro
 cutscenes, the title screen, the profile menu and the profile name-entry screen. PCSX2's GS reports fields and GIF
-traffic continuously (21,600 fields observed) with the image displayed in the child `NSView`.
+traffic continuously (21,600 fields observed) with the image displayed in the child `NSView`. Mission 01's fight runs
+at `Game 59 · Screen 59 · 98% · worst frame 31 ms`; the cutscenes reach `Game 60–61 · Screen 61 · 100% · worst frame
+20–21 ms`.
 
 ## Performance and image quality
 
 The largest CPU cost on Apple Silicon is the VU microcode interpreter: the game's geometry/skinning programs run many
 millions of FMACs per second. `generated/vu1` holds those programs compiled ahead of time (the same `vu1_recomp` path
 the Windows/Linux ports use). With the captured library on this M4 Air, the intro/cutscenes measure **57-60 game FPS
-and 97-100% speed at 3x internal resolution**, against 43 FPS and 80% without it. Inside **Mission 01's actual fight**
-the overlay reads `Game 59 FPS | Screen 59 | Speed 98% | worst frame 31 ms`.
+and 97-100% speed at 3x internal resolution**, against 43 FPS and 80% without it.
 
-The fight loads a *different* VU program from the cutscenes. If only the intro was captured, the fight falls back to the
-interpreter and measures about 17 FPS / 83% speed. Capture while the first fight is on screen, or save a fight state
-with F5 and load it with F9 during the capture run.
+The fight loads a *different* VU program from the cutscenes; with the fight program captured it holds 59 FPS. If only
+the intro was captured, the fight falls back to the interpreter and measures about 17 FPS / 83% speed.
 
 The default macOS video settings are now:
 
@@ -97,7 +141,7 @@ StartMaximized=1
 Presentation is immediate (`PS2X_PCSX2_VSYNC=0`) to keep input latency at one frame; `1` (FIFO) and `2` (mailbox)
 are available but added latency or dropped the field rate.
 
-`generated/vu1` is generated data and is not committed. Capturing is now automatic: every VU image the game uploads is
+`generated/vu1` is generated data and is not committed. Capturing is automatic: every VU image the game uploads is
 written to `vu_capture/` next to the executable (or in the app bundle). Play through the missions and co-op modes you
 care about once, then compile everything in one pass:
 
@@ -107,8 +151,8 @@ python3 build.py aot
 
 This merges the CLI and app capture folders, runs `vu1_recomp`, and rebuilds `urban`; there is no per-mission step.
 `./tools/macos/aot_vu.sh` is the same workflow for a single guided capture session (useful for a quick F5/F9 fight
-state). Keep `generated/vu1` when you rerun `build.py generate`: the generator only
-syncs top-level `.cpp` files and leaves that folder intact.
+state). Keep `generated/vu1` when you rerun `build.py generate`: the generator only syncs top-level `.cpp` files and
+leaves that folder intact.
 
 If a first-run profile save asks to format the memory card, choose **Yes**; it creates the card under
 `build/macos/bin/memcards/`.
@@ -131,15 +175,24 @@ no-disc check in one command:
 ./tools/macos/check_port.sh
 ```
 
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `"Urban Reign.app" is damaged` after downloading | `xattr -dr com.apple.quarantine "Urban Reign.app"` (no notarization yet). |
+| `[CDIMAGE] cannot open ...iso` | Image missing, or stored in a TCC-protected folder (`~/Downloads`, `~/Desktop`). Copy it into `game/` or the bundle. |
+| Steam does not start the shortcut | Path contains spaces; use a space-free symlink to the bundle. |
+| No overlay | Launch from the Steam library. |
+| Fights at ~17 FPS | Run `python3 build.py aot` after a capture run. |
+| codesign: "resource fork, Finder information, or similar detritus not allowed" | The folder is iCloud-synced. Stage the bundle outside it (as `make_release.sh` does) or run `xattr -cr`. |
+
 ## Known limits
 
 - The OpenGL native GS backend is not ported; PCSX2/Vulkan is the supported path.
 - Debug tools that depend on Windows (`native_profile`, F10 combat capture, hardware watchpoints) are compiled out or
   no-ops on macOS.
 - Mods are `.dylib` on macOS; CoopTool and ExampleMod are built by the normal target set.
-- `tools/macos/make_app.sh` wraps the build into `Urban Reign.app` and attempts an ad-hoc code signature. A local
-  unsigned/ad-hoc build runs; distributing it needs a real Developer ID signature/notarization and a review of the
-  GPL/asset obligations.
+- 8-player multitap, HD texture packs and guest-side Remote Play Together are implemented but untested here.
 - The game still requires a legally owned disc image; no game files are included.
 
 ## Licensing

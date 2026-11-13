@@ -17,6 +17,10 @@
 
 </div>
 
+> **Este branch (macos-arm64) adiciona o build nativo para Apple Silicon.** O Windows e o Linux continuam iguais;
+> as instruções de macOS (dependências, build, app bundle, performance e Remote Play Together) estão no
+> [README em inglês](README.md) e em [`docs/MACOS.md`](docs/MACOS.md).
+
 ---
 
 > [!IMPORTANT]
