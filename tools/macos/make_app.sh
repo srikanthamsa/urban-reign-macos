@@ -18,7 +18,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/urban" "$APP/Contents/MacOS/urban"
 # Dylibs are loaded from the executable's folder on macOS.
 find "$BIN" -maxdepth 1 -name '*.dylib' -exec cp {} "$APP/Contents/MacOS/" \;
-for item in resources shadercache_pcsx2 mods; do
+for item in resources shadercache_pcsx2 mods memcards states; do
     if [ -e "$BIN/$item" ]; then
         cp -R "$BIN/$item" "$APP/Contents/MacOS/"
     fi

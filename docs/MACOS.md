@@ -74,7 +74,12 @@ traffic continuously (21,600 fields observed) with the image displayed in the ch
 The largest CPU cost on Apple Silicon is the VU microcode interpreter: the game's geometry/skinning programs run many
 millions of FMACs per second. `generated/vu1` holds those programs compiled ahead of time (the same `vu1_recomp` path
 the Windows/Linux ports use). With the captured library on this M4 Air, the intro/cutscenes measure **57-60 game FPS
-and 97-100% speed at 3x internal resolution**, against 43 FPS and 80% without it.
+and 97-100% speed at 3x internal resolution**, against 43 FPS and 80% without it. Inside **Mission 01's actual fight**
+the overlay reads `Game 59 FPS | Screen 59 | Speed 98% | worst frame 31 ms`.
+
+The fight loads a *different* VU program from the cutscenes. If only the intro was captured, the fight falls back to the
+interpreter and measures about 17 FPS / 83% speed. Capture while the first fight is on screen, or save a fight state
+with F5 and load it with F9 during the capture run.
 
 The default macOS video settings are now:
 
@@ -98,8 +103,9 @@ are available but added latency or dropped the field rate.
 ./tools/macos/aot_vu.sh
 ```
 
-The script launches the game with `PS2X_VU1_CAPTURE`/`PS2X_VU0_CAPTURE`, asks you to play through the scenes, then
-compiles the captures and rebuilds `urban`. Keep `generated/vu1` when you rerun `build.py generate`: the generator only
+The script launches the game with `PS2X_VU1_CAPTURE`/`PS2X_VU0_CAPTURE`, asks you to play through the scenes **and
+at least one real fight**, then compiles the captures and rebuilds `urban`. A quick state (F5/F9) is the fastest way
+to reach the fight on later capture runs. Keep `generated/vu1` when you rerun `build.py generate`: the generator only
 syncs top-level `.cpp` files and leaves that folder intact.
 
 If a first-run profile save asks to format the memory card, choose **Yes**; it creates the card under
