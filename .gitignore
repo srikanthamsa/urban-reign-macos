@@ -18,6 +18,14 @@ imgui.ini
 /tools/launcher_preview.py
 # PS Vita GPU modules from upstream PS2Recomp (Sony/PowerVR binaries): this port is Windows only.
 /runtime/ps2xRuntime/vita/module/*.suprx
+# Private: the app icon is game art (no game content is distributed).
+/assets/
+# VU capture runs, built helper binaries and macOS noise.
+/vu_capture/
+/tools/rpt-mac/rptmac
+*.dSYM/
+.DS_Store
+
 # Local backups of the READMEs (2026-10-12), not published.
 /README.backup.md
 /README.pt-BR.backup.md

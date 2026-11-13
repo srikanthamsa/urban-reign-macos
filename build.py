@@ -193,8 +193,7 @@ def launcher_from_source(args=()):
 
 def release(args=()):
     if DARWIN:
-        print("macOS release packaging is not implemented yet; use the build/macos/bin folder.")
-        return 1
+        return run(["sh", ROOT / "tools" / "macos" / "make_release.sh", *args])
     if not WINDOWS:
         return run([sys.executable, ROOT / "tools" / "linux" / "release.py", *args])
     return run([sys.executable, ROOT / "tools" / "release.py"])
