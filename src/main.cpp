@@ -441,7 +441,7 @@ Dlls=
 # The macOS default is 3x: the M-series GPU keeps 60 FPS with the sharper image.
 InternalResolution=3
 # Window maximized at start: 1 = yes, 0 = no.
-StartMaximized=0
+StartMaximized=1
 # Fullscreen (borderless) at start, like F11: 1 = yes, 0 = no.
 StartFullscreen=0
 # Renderer: pcsx2 = PCSX2's GS (pcsx2gs.dll, DX11; default); native = the port's own GS (the options below only apply
