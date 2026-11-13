@@ -147,7 +147,7 @@ Notes from testing: the host side, group creation and link generation are verifi
 interface state, two guests get two distinct links). **Guest joining, streaming quality and controller hand-off
 have not been tested yet** — there was no second Steam account available. Treat it as experimental.
 
-<img src="docs/img/steam-library.png" alt="Urban Reign as a non-Steam shortcut in the Steam library, with custom grid art" width="100%">
+<img src="docs/img/steam-library.jpg" alt="Urban Reign as a non-Steam shortcut in the Steam library, with custom grid art" width="100%">
 
 Two macOS quirks worth knowing:
 
