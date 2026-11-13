@@ -4,3 +4,4 @@
 build.py text eol=lf
 tools/linux/*.py text eol=lf
 *.desktop text eol=lf
+*.command text eol=lf
