@@ -89,7 +89,7 @@ The bundle is self-contained: binary, `libpcsx2gs.dylib`, MoltenVK, shaderc, res
 disc image (copied from `game/`). It is ad-hoc signed, which is enough to run locally.
 
 Optional: drop your own `assets/UrbanReign.icns` in the repository root before running `make_app.sh` to give the
-bundle an icon. That folder is not tracked (game art is not distributed).
+bundle an icon. That folder is not tracked in git (it is game art).
 
 To play under Steam with the overlay, see [Online co-op](#online-co-op-with-steam-remote-play-together).
 

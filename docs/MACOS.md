@@ -60,7 +60,7 @@ rejects those). A local unsigned/ad-hoc build runs; distributing it needs a real
 notarization, plus a review of the GPL/asset obligations.
 
 **Optional icon.** Put `assets/UrbanReign.icns` in the repository root before running the script and the bundle gets
-it (`CFBundleIconFile`). `assets/` is gitignored: the icon is game art and is not distributed.
+it (`CFBundleIconFile`). `assets/` is gitignored in this repository (it is game art); it is yours to supply.
 
 **Distributable ZIP.**
 
