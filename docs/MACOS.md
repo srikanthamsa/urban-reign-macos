@@ -85,6 +85,7 @@ TextureFiltering=3
 TrilinearFiltering=2
 AnisotropicFiltering=8
 Sharpening=1
+StartMaximized=1
 ```
 
 `InternalResolution=4` (2560x1792) is sharper but measured ~55 FPS/91%; 3 is the 60-FPS sweet spot on this machine.
