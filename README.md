@@ -11,8 +11,8 @@ and friends can join over Steam Remote Play Together.**
 ![Based on](https://img.shields.io/badge/based%20on-PS2Recomp-8A2BE2)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
-[**Build it**](#quick-start-apple-silicon) · [Performance](#60-fps-on-apple-silicon) · [Online co-op](#online-co-op-with-steam-remote-play-together) ·
-[Troubleshooting](#troubleshooting) · [How it works](#how-it-works)
+[**Download**](../../releases/latest) · [**Build it**](#quick-start-apple-silicon) · [Performance](#60-fps-on-apple-silicon) ·
+[Online co-op](#online-co-op-with-steam-remote-play-together) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works)
 
 <img src="docs/img/macos-hero.jpg" alt="Urban Reign running natively on an Apple Silicon Mac, 61 FPS with the port's frame overlay" width="100%">
 
@@ -59,10 +59,14 @@ in a resizable Mac window, with controllers, memory cards, save states and mods.
 
 Requires an Apple Silicon Mac, macOS 14+, the Xcode command line tools and [Homebrew](https://brew.sh/).
 
+Prebuilt (no game data): **[download the latest release](../../releases/latest)** — on first launch, right-click →
+Open, or `xattr -dr com.apple.quarantine "Urban Reign.app"`.
+
+Or build it:
+
 ```sh
-git clone https://github.com/<you>/urban-reign-recomp.git
-cd urban-reign-recomp
-git checkout macos-arm64
+git clone https://github.com/srikanthamsa/urban-reign-macos.git
+cd urban-reign-macos
 
 ./tools/macos/install_deps.sh          # cmake, ninja, SDL3, shaderc, MoltenVK, Vulkan headers
 cp ~/path/to/"Urban Reign (USA).iso" game/
