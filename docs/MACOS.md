@@ -97,15 +97,17 @@ StartMaximized=1
 Presentation is immediate (`PS2X_PCSX2_VSYNC=0`) to keep input latency at one frame; `1` (FIFO) and `2` (mailbox)
 are available but added latency or dropped the field rate.
 
-`generated/vu1` is generated data and is not committed. To recreate it after a clean checkout:
+`generated/vu1` is generated data and is not committed. Capturing is now automatic: every VU image the game uploads is
+written to `vu_capture/` next to the executable (or in the app bundle). Play through the missions and co-op modes you
+care about once, then compile everything in one pass:
 
 ```sh
-./tools/macos/aot_vu.sh
+python3 build.py aot
 ```
 
-The script launches the game with `PS2X_VU1_CAPTURE`/`PS2X_VU0_CAPTURE`, asks you to play through the scenes **and
-at least one real fight**, then compiles the captures and rebuilds `urban`. A quick state (F5/F9) is the fastest way
-to reach the fight on later capture runs. Keep `generated/vu1` when you rerun `build.py generate`: the generator only
+This merges the CLI and app capture folders, runs `vu1_recomp`, and rebuilds `urban`; there is no per-mission step.
+`./tools/macos/aot_vu.sh` is the same workflow for a single guided capture session (useful for a quick F5/F9 fight
+state). Keep `generated/vu1` when you rerun `build.py generate`: the generator only
 syncs top-level `.cpp` files and leaves that folder intact.
 
 If a first-run profile save asks to format the memory card, choose **Yes**; it creates the card under

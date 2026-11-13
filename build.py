@@ -111,6 +111,40 @@ def generate(args=()):
     return run([sys.executable, ROOT / "tools" / "generate.py", *args])
 
 
+def aot(args=()):
+    """Compile every captured VU image into generated/vu1, then rebuild urban. One run after a play session covers
+    all missions/co-op modes played in that session; no per-mission rebuild."""
+    capture_dirs = [Path(args[0])] if args else [
+        BIN / "vu_capture",
+        BUILD / "Urban Reign.app" / "Contents" / "MacOS" / "vu_capture",
+    ]
+    images = [image for directory in capture_dirs if directory.is_dir() for image in directory.glob("*.bin")]
+    if not images:
+        print(f"No captured VU images in: {', '.join(str(d) for d in capture_dirs)}")
+        print("Play the game first (capture is automatic); then run this again.")
+        return 1
+    # Merge both layouts (CLI and app) before handing one directory to vu1_recomp.
+    capture = BUILD / "vu_capture_all"
+    shutil.rmtree(capture, ignore_errors=True)
+    capture.mkdir(parents=True)
+    for image in images:
+        shutil.copy2(image, capture / image.name)
+    print(f"Compiling {len(images)} captured VU image(s) from {len(capture_dirs)} location(s)")
+    if configure(["-DURBAN_BUILD_TOOLS=ON", "-DPS2X_ENABLE_SDL_INPUT=OFF"]):
+        return 1
+    if in_vs("cmake", "--build", BUILD, "--target", "vu1_recomp", "--", "-j", JOBS):
+        return 1
+    tool = BUILD / "runtime" / "ps2xTest" / "vu1_recomp"
+    out = ROOT / "generated" / "vu1"
+    out.mkdir(parents=True, exist_ok=True)
+    if run([tool, capture, out]):
+        return 1
+    # Restore the normal macOS build configuration (SDL controllers on, tools off) and relink.
+    if configure(["-DURBAN_BUILD_TOOLS=OFF", "-DPS2X_ENABLE_SDL_INPUT=ON"]):
+        return 1
+    return build()
+
+
 def pick(title, options):
     """Numbered choice; returns the index or None (0 = back)."""
     print(f"\n{title}")
@@ -194,6 +228,7 @@ UTILITIES = [
     ("Build and play", lambda: build() or play()),
     ("Configure again (CMake)", lambda: configure()),
     ("Build only the PCSX2 GS (pcsx2gs.dll / libpcsx2gs.so)", lambda: build("pcsx2gs")),
+    ("Compile captured VU programs (after a play session)", lambda: aot()),
     ("Benchmark a savestate (bench/states)", lambda: bench()),
     (f"Open the game folder ({BIN.relative_to(ROOT).as_posix()})", open_game_folder),
     ("Make a release: folder + ZIP (build/release)" if WINDOWS else "Make a release: .tar.gz + .deb (build/release)",
@@ -240,6 +275,7 @@ COMMANDS = {
     "bench": bench,
     "launcher": launcher,
     "release": release,
+    "aot": aot,
 }
 
 

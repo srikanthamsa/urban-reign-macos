@@ -1265,6 +1265,20 @@ int main(int argc, char *argv[])
 #endif
     const std::filesystem::path exeDir = executableDirectory();
     const std::filesystem::path userDir = userDirectory(exeDir);
+#if defined(__APPLE__)
+    // Keep every VU image the game uploads. AOT compilation of these is the difference between ~17 FPS and 60 FPS in
+    // fights; capturing is cheap (one 16 KB file per program) and means a later mission/co-op program is already on
+    // disk for the one-time `build.py aot` pass.
+    {
+        const std::filesystem::path captureDir = userDir / "vu_capture";
+        std::error_code captureError;
+        std::filesystem::create_directories(captureDir, captureError);
+        if (!std::getenv("PS2X_VU1_CAPTURE"))
+            setenv("PS2X_VU1_CAPTURE", captureDir.string().c_str(), 1);
+        if (!std::getenv("PS2X_VU0_CAPTURE"))
+            setenv("PS2X_VU0_CAPTURE", captureDir.string().c_str(), 1);
+    }
+#endif
     if (userDir != exeDir)
         setDefaultEnv("PS2X_DATA_DIR", userDir.string()); // the PCSX2 GS's shader cache and HD textures (gs_pcsx2_backend.cpp)
     loadControlsFile(userDir); // controls.ini, PCSX2 format (converted from the controls.ini/controles.ini of older versions)

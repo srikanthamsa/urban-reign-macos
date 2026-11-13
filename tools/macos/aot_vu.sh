@@ -5,7 +5,7 @@
 set -e
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 BUILD=${BUILD:-"$ROOT/build/macos"}
-CAP=${1:-"$ROOT/build/vu-capture"}
+CAP=${1:-"$BUILD/bin/vu_capture"}
 ISO=${2:-}
 mkdir -p "$CAP"
 
