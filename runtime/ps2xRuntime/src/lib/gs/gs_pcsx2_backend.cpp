@@ -491,8 +491,9 @@ bool GSPcsx2Backend::EnsureOpen()
 #if defined(_WIN32)
     constexpr int kDefaultVsync = 2; // mailbox: no tearing, no wait
 #elif defined(__APPLE__)
-    // MoltenVK/Metal: FIFO is the reliable, tear-free path. PS2X_PCSX2_VSYNC=0/2 still selects immediate/mailbox.
-    constexpr int kDefaultVsync = 1;
+    // Immediate: FIFO added a full frame of input latency, and mailbox under MoltenVK dropped the field rate to ~43.
+    // PS2X_PCSX2_VSYNC=1/2 still selects FIFO/mailbox for a tear-free presentation.
+    constexpr int kDefaultVsync = 0;
 #else
     // Linux: present without waiting. NVIDIA offers no mailbox for an X11 window under XWayland, so PCSX2 fell back to
     // FIFO, which made the GS thread wait for the compositor: a 4-fighter fight at ~52 frames/s (minimum 30) instead of

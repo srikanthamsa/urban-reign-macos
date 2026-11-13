@@ -69,6 +69,41 @@ On an M4 Air with the USA `SLUS-21209` image, the native build boots through the
 cutscenes, the title screen, the profile menu and the profile name-entry screen. PCSX2's GS reports fields and GIF
 traffic continuously (21,600 fields observed) with the image displayed in the child `NSView`.
 
+## Performance and image quality
+
+The largest CPU cost on Apple Silicon is the VU microcode interpreter: the game's geometry/skinning programs run many
+millions of FMACs per second. `generated/vu1` holds those programs compiled ahead of time (the same `vu1_recomp` path
+the Windows/Linux ports use). With the captured library on this M4 Air, the intro/cutscenes measure **57-60 game FPS
+and 97-100% speed at 3x internal resolution**, against 43 FPS and 80% without it.
+
+The default macOS video settings are now:
+
+```ini
+InternalResolution=3   # 1920x1344 from the 640x448 source
+FXAA=0
+TextureFiltering=3
+TrilinearFiltering=2
+AnisotropicFiltering=8
+Sharpening=1
+```
+
+`InternalResolution=4` (2560x1792) is sharper but measured ~55 FPS/91%; 3 is the 60-FPS sweet spot on this machine.
+Presentation is immediate (`PS2X_PCSX2_VSYNC=0`) to keep input latency at one frame; `1` (FIFO) and `2` (mailbox)
+are available but added latency or dropped the field rate.
+
+`generated/vu1` is generated data and is not committed. To recreate it after a clean checkout:
+
+```sh
+./tools/macos/aot_vu.sh
+```
+
+The script launches the game with `PS2X_VU1_CAPTURE`/`PS2X_VU0_CAPTURE`, asks you to play through the scenes, then
+compiles the captures and rebuilds `urban`. Keep `generated/vu1` when you rerun `build.py generate`: the generator only
+syncs top-level `.cpp` files and leaves that folder intact.
+
+If a first-run profile save asks to format the memory card, choose **Yes**; it creates the card under
+`build/macos/bin/memcards/`.
+
 ## Verification without a disc
 
 Two small targets are built to prove the macOS graphics plumbing without game data:

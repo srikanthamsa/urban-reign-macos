@@ -438,7 +438,8 @@ Dlls=
 [Video]
 # Internal resolution: 1 = native PS2 (640x448), 2 = 1280x896, 3 = 1920x1344, 4 = 2560x1792 (up to 8).
 # Each step multiplies the graphics card's work (2 = 4 times, 3 = 9 times, 4 = 16 times).
-InternalResolution=1
+# The macOS default is 3x: the M-series GPU keeps 60 FPS with the sharper image.
+InternalResolution=3
 # Window maximized at start: 1 = yes, 0 = no.
 StartMaximized=0
 # Fullscreen (borderless) at start, like F11: 1 = yes, 0 = no.
@@ -446,16 +447,16 @@ StartFullscreen=0
 # Renderer: pcsx2 = PCSX2's GS (pcsx2gs.dll, DX11; default); native = the port's own GS (the options below only apply
 # to pcsx2).
 Renderer=pcsx2
-# FXAA anti-aliasing (light): 1 = on, 0 = off.
-FXAA=1
-# Texture filtering: 0 = nearest (pixels), 1 = forced bilinear, 2 = as the PS2 (default), 3 = forced except sprites.
-TextureFiltering=2
-# Trilinear filtering: -1 = automatic (default), 0 = off, 1 = as the PS2, 2 = forced.
-TrilinearFiltering=-1
+# FXAA anti-aliasing (light): 1 = on, 0 = off. Off by default on macOS: the 3x render is already clean.
+FXAA=0
+# Texture filtering: 0 = nearest (pixels), 1 = forced bilinear, 2 = as the PS2, 3 = forced except sprites (default here).
+TextureFiltering=3
+# Trilinear filtering: -1 = automatic, 0 = off, 1 = as the PS2, 2 = forced (default here).
+TrilinearFiltering=2
 # Anisotropic filtering: 0 = off, 2, 4, 8 or 16.
-AnisotropicFiltering=0
+AnisotropicFiltering=8
 # Sharpening (AMD CAS): 0 = off, 1 = sharpen only, 2 = sharpen and resize; SharpeningStrength = 0 to 100.
-Sharpening=0
+Sharpening=1
 SharpeningStrength=50
 # Color correction: 1 = applies Brightness/Contrast/Saturation/Gamma (1 to 100; 50 = unchanged).
 ColorCorrection=0
