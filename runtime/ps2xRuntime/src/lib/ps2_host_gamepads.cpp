@@ -1,4 +1,5 @@
 #include "ps2_host_gamepads.h"
+#include "ps2_remote_pads.h"
 
 #include <algorithm>
 #include <array>
@@ -184,6 +185,7 @@ namespace ps2_host_gamepads
 #endif
             if (!g_sdl)
                 std::cerr << "[input] controllers through GLFW (no vibration)" << std::endl;
+            ps2_remote_pads::start();
             return true;
         }();
         (void)started;
@@ -215,6 +217,8 @@ namespace ps2_host_gamepads
     {
         if (device < 0 || device >= kMaxDevices)
             return false;
+        if (ps2_remote_pads::active(device))
+            return true;
 #if defined(PS2X_HAS_SDL3)
         if (g_sdl)
             return g_devices[static_cast<size_t>(device)].gamepad != nullptr;
@@ -226,6 +230,8 @@ namespace ps2_host_gamepads
     {
         if (device < 0 || device >= kMaxDevices || button < 0 || button >= ButtonCount)
             return false;
+        if (ps2_remote_pads::active(device))
+            return ps2_remote_pads::button(device, static_cast<int>(button));
 #if defined(PS2X_HAS_SDL3)
         if (g_sdl)
         {
@@ -242,6 +248,8 @@ namespace ps2_host_gamepads
     {
         if (device < 0 || device >= kMaxDevices || axis < 0 || axis >= AxisCount)
             return 0.0f;
+        if (ps2_remote_pads::active(device))
+            return ps2_remote_pads::axis(device, static_cast<int>(axis));
         const bool trigger = axis == LeftTrigger || axis == RightTrigger;
 #if defined(PS2X_HAS_SDL3)
         if (g_sdl)
