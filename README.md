@@ -12,7 +12,7 @@ and friends can join over Steam Remote Play Together.**
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 [**Download**](../../releases/latest) · [**Build it**](#quick-start-apple-silicon) · [Performance](#60-fps-on-apple-silicon) ·
-[Online co-op](#online-co-op-with-steam-remote-play-together) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works)
+[Online co-op](#over-the-network) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works)
 
 <img src="docs/img/macos-hero.jpg" alt="Urban Reign running natively on an Apple Silicon Mac, 61 FPS with the port's frame overlay" width="100%">
 
@@ -53,7 +53,8 @@ in a resizable Mac window, with controllers, memory cards, save states and mods.
 | Memory cards, savestates (F5/F9) | Verified |
 | Mods: `.dylib` mods and PCSX2 `.pnach` patches | Implemented (CoopTool builds for arm64) |
 | HD texture packs (PCSX2 format) | Supported, not tested on this branch |
-| Steam overlay + Remote Play Together | Host side verified, guest join not yet |
+| Remote pads over UDP (Moonlight video) | Implemented — see [Over the network](#over-the-network) |
+| Steam overlay + Remote Play Together | Session/link/input work; Steam's macOS capture returns a placeholder (see below) |
 
 ## Quick start (Apple Silicon)
 
@@ -95,7 +96,7 @@ disc image (copied from `game/`). It is ad-hoc signed, which is enough to run lo
 Optional: drop your own `assets/UrbanReign.icns` in the repository root before running `make_app.sh` to give the
 bundle an icon. That folder is not tracked in git (it is game art).
 
-To play under Steam with the overlay, see [Online co-op](#online-co-op-with-steam-remote-play-together).
+To play under Steam with the overlay, see [Steam Remote Play Together](#steam-remote-play-together).
 
 ## 60 FPS on Apple Silicon
 
@@ -124,7 +125,29 @@ machine, and it is the macOS default. So are `StartMaximized=1`, `FXAA=0` (the 3
 The capture is per VU program, not per mission: one play session can cover every scene you unlocked. The first
 fight loads a different program from the cutscenes, so capture while a fight is on screen.
 
-## Online co-op with Steam Remote Play Together
+## Over the network
+
+Two ways to play with friends. The first one works today; the second depends on Steam.
+
+### Moonlight for video + remote pads for controllers
+
+Stream the game with [Sunshine](https://app.lizardbyte.dev/Sunshine/) on the Mac and Moonlight on the friend's PC, over
+Tailscale (or LAN). Audio and video arrive through Moonlight; the controller travels separately:
+
+```sh
+# friend's PC
+python -m pip install -r tools/remote-pad/requirements.txt
+python tools/remote-pad/send_pad.py <host-tailnet-ip> --player 2
+```
+
+The host listens on UDP 50505 and maps player `N` to `SDL-(N-1)`, so the pad takes over Pad2, Pad3, Pad4 — a real
+controller in game, with sticks, triggers and d-pad, no key mapping. Packets are 13-byte absolute state at 120 Hz, so
+packet loss just waits for the next snapshot. See [tools/remote-pad](tools/remote-pad/README.md).
+
+Moonlight alone can only send keyboard and mouse on a macOS host (no virtual-gamepad entitlement), so pair it with the
+sender above, or give each player a keyboard cluster.
+
+### Steam Remote Play Together
 
 Steam only offers Remote Play Together for games it knows about, so a non-Steam shortcut gets no invite button.
 [`tools/rpt-mac`](tools/rpt-mac) fixes that: it talks to the running Steam client through `steamclient.dylib` and
@@ -147,9 +170,11 @@ https://s.team/remoteplay/connect/Jb2xQr
 Each link is for one guest; they open it in Steam or the Steam Link app. Up to 3 guests, as usual for Steam.
 `remote-play.command` is the same flow as a double-clickable window.
 
-Notes from testing: the host side, group creation and link generation are verified on macOS (`verify` shows the
-interface state, two guests get two distinct links). **Guest joining, streaming quality and controller hand-off
-have not been tested yet** — there was no second Steam account available. Treat it as experimental.
+Notes from testing (2026-11-13, a real guest): the group, the link, the guest connection, per-guest input flags and
+the guest's Xbox pad all work — Steam log shows the pad being forwarded. What fails is Steam's **host capture**:
+`Capture method set to Desktop Placeholder`, `nan FPS`, ~0.46 Mbit/s outbound, so the guest sees black with "input is
+temporarily disabled while the host is busy". It survived granting Screen Recording to Steam, a full restart and a
+windowed game. Treat RPT hosting on macOS as blocked on Steam until Valve fixes capture; use the Moonlight path above.
 
 <img src="docs/img/steam-library.jpg" alt="Urban Reign as a non-Steam shortcut in the Steam library, with custom grid art" width="100%">
 

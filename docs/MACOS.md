@@ -98,6 +98,27 @@ cd tools/rpt-mac && make
 `verify` prints the interface's state and refuses builds whose vtable layout has not been mapped. Guest-side
 streaming and input are still unverified (no second Steam account here).
 
+## Remote controllers over UDP
+
+`ps2_host_gamepads` is the only reader behind `controls.ini`'s `SDL-<n>/…` bindings, so a remote source can take over a
+device slot without touching the pad emulation. `ps2_remote_pads.cpp` listens on UDP 50505 and maps `player_id N` to
+device `N-1` (Pad2 = SDL-1, Pad3 = SDL-2, …). While packets arrive the slot reports connected and its buttons/axes come
+from the packet; 1.5 s after the last packet the local device takes the slot back. The keyboard bindings in the same
+section keep working, so a player can switch between pad and keys.
+
+Packet: 13 bytes, little endian — `player_id u8`, `button_mask u16`, four `i16` sticks, two `u8` triggers. Sticks are
+−32768…32767 with down/right positive, buttons use SDL's standard indices. Absolute state at 120 Hz, so loss needs no
+recovery. `tools/remote-pad/` has the sender and its README.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PS2X_REMOTE_PADS` | on | `0` disables the listener |
+| `PS2X_REMOTE_PAD_PORT` | `50505` | UDP port |
+| `PS2X_REMOTE_PAD_BIND` | `0.0.0.0` | bind address; the tailnet IP ignores LAN traffic |
+
+The listener authenticates nothing; it expects a trusted overlay (Tailscale/ZeroTier) or LAN. Logs to watch:
+`[input] remote pads on …`, `[input] remote pad N -> SDL-<n>`, `[input] remote pad N stopped`.
+
 ## Renderer
 
 `libpcsx2gs.dylib` is built with PCSX2's Vulkan device, MoltenVK, and an `NSView`/`CAMetalLayer` child over raylib's
